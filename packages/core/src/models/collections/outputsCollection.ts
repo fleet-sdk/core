@@ -24,7 +24,7 @@ export class OutputsCollection extends Collection<OutputBuilder, OutputBuilder> 
     }
   }
 
-  protected _map(output: OutputBuilder) {
+  protected map(output: OutputBuilder) {
     return output;
   }
 
@@ -33,28 +33,28 @@ export class OutputsCollection extends Collection<OutputBuilder, OutputBuilder> 
   remove(outputs: OutputBuilder | number): number {
     let index = -1;
     if (typeof outputs === "number") {
-      if (this._isIndexOutOfBounds(outputs)) {
+      if (this.isOutOfBounds(outputs)) {
         throw new RangeError(`Index '${outputs}' is out of range.`);
       }
 
       index = outputs;
     } else {
-      index = this._items.lastIndexOf(outputs);
+      index = this.items.lastIndexOf(outputs);
 
-      if (this._isIndexOutOfBounds(index)) {
+      if (this.isOutOfBounds(index)) {
         throw new NotFoundError(
           "The output you are trying to remove is not present in the outputs collection."
         );
       }
     }
 
-    this._items.splice(index, 1);
+    this.items.splice(index, 1);
 
     return this.length;
   }
 
   clone(): OutputsCollection {
-    return new OutputsCollection(this._items);
+    return new OutputsCollection(this.items);
   }
 
   sum(basis?: SelectionTarget | BoxSummary): BoxSummary {
@@ -75,7 +75,7 @@ export class OutputsCollection extends Collection<OutputBuilder, OutputBuilder> 
       }
     }
 
-    for (const box of this._items) {
+    for (const box of this.items) {
       nanoErgs += box.value;
       for (const token of box.assets) {
         if (token.tokenId) setsum(tokens, token.tokenId, token.amount);

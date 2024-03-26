@@ -6,7 +6,7 @@ class MockCollection extends Collection<number, number> {
     super();
   }
 
-  protected override _map(item: number): number {
+  protected override map(item: number): number {
     return item;
   }
 

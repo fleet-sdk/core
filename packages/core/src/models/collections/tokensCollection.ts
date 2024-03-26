@@ -2,6 +2,7 @@ import {
   Amount,
   Collection,
   CollectionAddOptions,
+  ensureBigInt,
   FleetError,
   isDefined,
   isUndefined,
@@ -10,10 +11,12 @@ import {
   TokenAmount,
   TokenId
 } from "@fleet-sdk/common";
-import { ensureBigInt } from "@fleet-sdk/common";
-import { NotFoundError, UndefinedMintingContext } from "../../errors";
-import { InsufficientTokenAmount } from "../../errors/insufficientTokenAmount";
-import { MaxTokensOverflow } from "../../errors/maxTokensOverflow";
+import {
+  InsufficientTokenAmount,
+  MaxTokensOverflow,
+  NotFoundError,
+  UndefinedMintingContext
+} from "../../errors";
 
 export const MAX_TOKENS_PER_BOX = 120;
 
@@ -37,27 +40,27 @@ export class TokensCollection extends Collection<OutputToken<bigint>, OutputToke
     }
   }
 
-  public get minting(): NewToken<bigint> | undefined {
+  get minting(): NewToken<bigint> | undefined {
     if (!this.#minting) return;
-    return { ...this.#minting.metadata, amount: this._items[this.#minting.index].amount };
+    return { ...this.#minting.metadata, amount: this.at(this.#minting.index).amount };
   }
 
-  protected override _map(token: OutputToken): OutputToken<bigint> {
+  protected override map(token: OutputToken): OutputToken<bigint> {
     return { tokenId: token.tokenId, amount: ensureBigInt(token.amount) };
   }
 
-  protected override _addOne(token: OutputToken, options?: TokenAddOptions): number {
+  protected override addOne(token: OutputToken, options?: TokenAddOptions): number {
     if (isUndefined(options) || (options.sum && isUndefined(options.index))) {
-      if (this._sum(this._map(token))) return this.length;
+      if (this._sum(this.map(token))) return this.length;
     }
 
-    if (this._items.length >= MAX_TOKENS_PER_BOX) throw new MaxTokensOverflow();
-    super._addOne(token, options);
+    if (this.length >= MAX_TOKENS_PER_BOX) throw new MaxTokensOverflow();
+    super.addOne(token, options);
 
     return this.length;
   }
 
-  public override add(items: OneOrMore<TokenAmount<Amount>>, options?: TokenAddOptions): number {
+  override add(items: OneOrMore<TokenAmount<Amount>>, options?: TokenAddOptions): number {
     if (Array.isArray(items)) {
       if (items.some((x) => !x.tokenId)) throw new FleetError("TokenID is required.");
     } else if (!items.tokenId) {
@@ -67,7 +70,7 @@ export class TokensCollection extends Collection<OutputToken<bigint>, OutputToke
     return super.add(items, options);
   }
 
-  public mint(token: NewToken<Amount>): number {
+  mint(token: NewToken<Amount>): number {
     if (isDefined(this.#minting)) {
       throw new FleetError("Only one minting token is allowed per transaction.");
     } else {
@@ -79,7 +82,7 @@ export class TokensCollection extends Collection<OutputToken<bigint>, OutputToke
   }
 
   private _sum(token: OutputToken<bigint>): boolean {
-    for (const t of this._items) {
+    for (const t of this.items) {
       if (t.tokenId === token.tokenId) {
         t.amount += token.amount;
         return true;
@@ -89,46 +92,45 @@ export class TokensCollection extends Collection<OutputToken<bigint>, OutputToke
     return false;
   }
 
-  public remove(tokenId: TokenId, amount?: Amount): number;
-  public remove(index: number, amount?: Amount): number;
-  public remove(tokenIdOrIndex: TokenId | number, amount?: Amount): number {
+  remove(tokenId: TokenId, amount?: Amount): number;
+  remove(index: number, amount?: Amount): number;
+  remove(tokenIdOrIndex: TokenId | number, amount?: Amount): number {
     let index = -1;
     if (typeof tokenIdOrIndex === "number") {
-      if (this._isIndexOutOfBounds(tokenIdOrIndex)) {
+      if (this.isOutOfBounds(tokenIdOrIndex)) {
         throw new RangeError(`Index '${tokenIdOrIndex}' is out of range.`);
       }
 
       index = tokenIdOrIndex;
     } else {
-      index = this._items.findIndex((token) => token.tokenId === tokenIdOrIndex);
+      index = this.items.findIndex((token) => token.tokenId === tokenIdOrIndex);
 
-      if (this._isIndexOutOfBounds(index)) {
+      if (this.isOutOfBounds(index)) {
         throw new NotFoundError(`TokenId '${tokenIdOrIndex}' not found in assets collection.`);
       }
     }
 
     if (amount && index > -1) {
-      const bigAmount = ensureBigInt(amount);
-      const token = this._items[index];
+      const value = ensureBigInt(amount);
+      const token = this.items[index];
 
-      if (bigAmount > token.amount) {
+      if (value > token.amount) {
         throw new InsufficientTokenAmount(
           `Insufficient token amount to perform a subtraction operation.`
         );
-      } else if (bigAmount < token.amount) {
-        token.amount -= bigAmount;
-
+      } else if (value < token.amount) {
+        token.amount -= value;
         return this.length;
       }
     }
 
-    this._items.splice(index, 1);
+    this.items.splice(index, 1);
 
     return this.length;
   }
 
   contains(tokenId: string): boolean {
-    return this._items.some((x) => x.tokenId === tokenId);
+    return this.items.some((x) => x.tokenId === tokenId);
   }
 
   toArray(): TokenAmount<bigint>[];
@@ -138,7 +140,7 @@ export class TokensCollection extends Collection<OutputToken<bigint>, OutputToke
     if (this.minting) {
       if (!mintingTokenId) throw new UndefinedMintingContext();
 
-      return this._items.map((x) => ({
+      return this.items.map((x) => ({
         tokenId: x.tokenId ? x.tokenId : mintingTokenId,
         amount: x.amount
       }));

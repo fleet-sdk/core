@@ -31,7 +31,7 @@ export class MockUTxOCollection extends Collection<Box<bigint>, MockUTxOInput> {
     }
   }
 
-  protected override _map(utxo: BoxCandidate<Amount> | Box<Amount>): Box<bigint> {
+  protected override map(utxo: BoxCandidate<Amount> | Box<Amount>): Box<bigint> {
     if (isUTxOCandidate(utxo)) {
       return mockUTxO(ensureUTxOBigInt(utxo));
     }
@@ -39,16 +39,16 @@ export class MockUTxOCollection extends Collection<Box<bigint>, MockUTxOInput> {
     return ensureUTxOBigInt(utxo);
   }
 
-  protected override _addOne(utxo: Box<Amount>): number {
-    if (this._items.some((item) => item.boxId === utxo.boxId)) {
+  protected override addOne(utxo: Box<Amount>): number {
+    if (this.items.some((item) => item.boxId === utxo.boxId)) {
       throw new DuplicateInputError(utxo.boxId);
     }
 
-    return super._addOne(utxo);
+    return super.addOne(utxo);
   }
 
   public clear() {
-    this._items.length = 0;
+    this.items.length = 0;
   }
 
   public remove(boxId: BoxId): number;
@@ -56,31 +56,31 @@ export class MockUTxOCollection extends Collection<Box<bigint>, MockUTxOInput> {
   public remove(boxIdOrIndex: BoxId | number): number {
     let index = -1;
     if (typeof boxIdOrIndex === "number") {
-      if (this._isIndexOutOfBounds(boxIdOrIndex)) {
+      if (this.isOutOfBounds(boxIdOrIndex)) {
         throw new RangeError(`Index '${boxIdOrIndex}' is out of range.`);
       }
 
       index = boxIdOrIndex;
     } else {
-      index = this._items.findIndex((box) => box.boxId === boxIdOrIndex);
+      index = this.items.findIndex((box) => box.boxId === boxIdOrIndex);
 
-      if (this._isIndexOutOfBounds(index)) {
+      if (this.isOutOfBounds(index)) {
         throw new NotFoundError(
           "The UTxO you are trying to remove is not present in the UTxOs collection."
         );
       }
     }
 
-    this._items.splice(index, 1);
+    this.items.splice(index, 1);
 
     return this.length;
   }
 
   public some(predicate: (item: Box<bigint>) => unknown): boolean {
-    return this._items.some(predicate);
+    return this.items.some(predicate);
   }
 
   public exists(boxId: string): boolean {
-    return this._items.some((x) => x.boxId === boxId);
+    return this.items.some((x) => x.boxId === boxId);
   }
 }

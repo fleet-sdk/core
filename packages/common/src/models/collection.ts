@@ -3,6 +3,13 @@ import { isDefined } from "../utils";
 
 export type CollectionAddOptions = { index?: number };
 
+type ReduceCallback<T, InternalType> = (
+  accumulator: T,
+  currentValue: InternalType,
+  currentIndex: number,
+  array: InternalType[]
+) => T;
+
 /**
  * Collection abstract model
  *
@@ -10,49 +17,39 @@ export type CollectionAddOptions = { index?: number };
  * Define a new collection class with internal type `number` and external type `string`
  * ```
  * class TestCollection extends Collection<number, string> {
- *    protected _map(item: string | number): number {
- *      return Number(item);
- *    }
- *    // Some other methods
- *  }
+ *   protected map(item: string | number): number {
+ *     return Number(item);
+ *   }
+ *   // Some other methods
+ * }
  * ```
- *
  */
 export abstract class Collection<InternalType, ExternalType> implements Iterable<InternalType> {
-  protected readonly _items: InternalType[];
+  protected readonly items: InternalType[];
 
   constructor() {
-    this._items = [];
-  }
-
-  protected _isIndexOutOfBounds(index: number): boolean {
-    return index < 0 || index >= this._items.length;
+    this.items = [];
   }
 
   [Symbol.iterator](): Iterator<InternalType> {
     let counter = 0;
 
     return {
-      next: () => {
-        return {
-          done: counter >= this.length,
-          value: this._items[counter++]
-        };
-      }
+      next: () => ({ done: counter >= this.length, value: this.items[counter++] })
     };
   }
 
   /**
    * Number of items in the collection
    */
-  public get length(): number {
-    return this._items.length;
+  get length(): number {
+    return this.items.length;
   }
 
   /**
    * True if the collection is empty
    */
-  public get isEmpty(): boolean {
+  get isEmpty(): boolean {
     return this.length === 0;
   }
 
@@ -61,12 +58,12 @@ export abstract class Collection<InternalType, ExternalType> implements Iterable
    * @param index
    * @throws RangeError if index is out of bounds
    */
-  public at(index: number): InternalType {
-    if (this._isIndexOutOfBounds(index)) {
+  at(index: number): InternalType {
+    if (this.isOutOfBounds(index)) {
       throw new RangeError(`Index '${index}' is out of range.`);
     }
 
-    return this._items[index];
+    return this.items[index];
   }
 
   /**
@@ -75,8 +72,17 @@ export abstract class Collection<InternalType, ExternalType> implements Iterable
    * @param options
    * @returns The new length of the collection
    */
-  public add(items: OneOrMore<ExternalType>, options?: CollectionAddOptions): number {
-    return this._addOneOrMore(items, options);
+  add(items: OneOrMore<ExternalType>, options?: CollectionAddOptions): number {
+    return this.addOneOrMore(items, options);
+  }
+
+  /**
+   * Checks if the given index is out of bounds.
+   * @param index - The index to check.
+   * @returns True if the index is out of bounds, false otherwise.
+   */
+  protected isOutOfBounds(index: number) {
+    return index < 0 || index >= this.items.length;
   }
 
   abstract remove(item: unknown): number;
@@ -86,41 +92,39 @@ export abstract class Collection<InternalType, ExternalType> implements Iterable
    * @param item
    * @protected
    */
-  protected abstract _map(item: ExternalType | InternalType): InternalType;
+  protected abstract map(item: ExternalType | InternalType): InternalType;
 
-  protected _addOne(item: InternalType | ExternalType, options?: CollectionAddOptions): number {
+  protected addOne(item: InternalType | ExternalType, options?: CollectionAddOptions): number {
     if (isDefined(options) && isDefined(options.index)) {
       if (options.index === this.length) {
-        this._items.push(this._map(item));
+        this.items.push(this.map(item));
 
         return this.length;
       }
 
-      if (this._isIndexOutOfBounds(options.index)) {
+      if (this.isOutOfBounds(options.index)) {
         throw new RangeError(`Index '${options.index}' is out of range.`);
       }
 
-      this._items.splice(options.index, 0, this._map(item));
+      this.items.splice(options.index, 0, this.map(item));
 
       return this.length;
     }
 
-    this._items.push(this._map(item));
+    this.items.push(this.map(item));
 
-    return this._items.length;
+    return this.items.length;
   }
 
-  protected _addOneOrMore(items: OneOrMore<ExternalType>, options?: CollectionAddOptions): number {
+  protected addOneOrMore(items: OneOrMore<ExternalType>, options?: CollectionAddOptions): number {
     if (Array.isArray(items)) {
       if (isDefined(options) && isDefined(options.index)) {
         items = items.reverse();
       }
 
-      for (const item of items) {
-        this._addOne(item, options);
-      }
+      items.forEach((item) => this.addOne(item, options));
     } else {
-      this._addOne(items, options);
+      this.addOne(items, options);
     }
 
     return this.length;
@@ -129,19 +133,11 @@ export abstract class Collection<InternalType, ExternalType> implements Iterable
   /**
    * Get the collection as an array
    */
-  public toArray(): InternalType[] {
-    return [...this._items];
+  toArray(): InternalType[] {
+    return [...this.items];
   }
 
-  public reduce<U>(
-    callbackFn: (
-      accumulator: U,
-      currentValue: InternalType,
-      currentIndex: number,
-      array: InternalType[]
-    ) => U,
-    initialValue: U
-  ): U {
-    return this._items.reduce(callbackFn, initialValue);
+  reduce<T>(callbackFn: ReduceCallback<T, InternalType>, initialValue: T): T {
+    return this.items.reduce(callbackFn, initialValue);
   }
 }
